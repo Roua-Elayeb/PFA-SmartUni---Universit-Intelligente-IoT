@@ -104,12 +104,12 @@ const deleteUser = async (req, res) => {
 // PUT /api/auth/users/:id — Modifier un utilisateur
 const updateUser = async (req, res) => {
   try {
-    const { name, email, level, specialty } = req.body;
+    const { name, email, level, specialty, speciality, courses } = req.body;
     const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { name, email, level, specialty },  // ← ajoute level et specialty
-      { new: true }
-    ).select('-password');
+  req.params.id,
+  { name, email, level, specialty, speciality, courses },
+  { new: true }
+).select('-password');
 
     if (!user) {
       return res.status(404).json({ message: 'Utilisateur introuvable.' });

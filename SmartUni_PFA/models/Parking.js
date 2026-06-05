@@ -1,3 +1,9 @@
+// ============================================================
+//  SmartUni — Parking.js (modèle mis à jour)
+//  Remplace models/Parking.js
+//  Ajout : occupiedByVehicle (détecté par ultrason ESP32)
+// ============================================================
+
 const mongoose = require('mongoose');
 
 const parkingSchema = new mongoose.Schema(
@@ -12,6 +18,7 @@ const parkingSchema = new mongoose.Schema(
       type: Number,
       required: [true, "L'étage est obligatoire"],
     },
+    // Réservation manuelle via l'application
     available: {
       type: Boolean,
       default: true,
@@ -29,8 +36,23 @@ const parkingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // ── NOUVEAU : détection physique par ultrason ──────────
+    occupiedByVehicle: {
+      type: Boolean,
+      default: false,  // true = voiture physiquement présente (ultrason)
+    },
+    lastSensorUpdate: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+// Méthode utilitaire : vraiment disponible ?
+// Libre = pas de réservation ET pas de voiture physique
+parkingSchema.virtual('trulyAvailable').get(function () {
+  return this.available && !this.occupiedByVehicle;
+});
 
 module.exports = mongoose.model('Parking', parkingSchema);

@@ -1,58 +1,77 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
+// ============================================================
+//  SmartUni PFA — index.js (version MQTT + Socket.IO)
+//  Remplace l'ancien index.js
+// ============================================================
 
-// Chargement des variables d'environnement
+const express    = require('express');
+const mongoose   = require('mongoose');
+const cors       = require('cors');
+const dotenv     = require('dotenv');
+const http       = require('http');
+const { Server } = require('socket.io');
+
+const { startMQTT, setIO } = require('./services/mqttService');
+
 dotenv.config();
 
-const app = express();
+const app    = express();
+const server = http.createServer(app);
 
-// ── Middlewares globaux ──────────────────────────────────────────────────────
+// ─── Socket.IO ───────────────────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+});
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Client Socket.IO connecté : ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client déconnecté : ${socket.id}`);
+  });
+});
+
+// ─── Middlewares ─────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Connexion MongoDB ────────────────────────────────────────────────────────
+// ─── MongoDB ─────────────────────────────────────────────────────────────────
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB connecté avec succès'))
+  .then(() => {
+    console.log('✅ MongoDB connecté');
+    // Démarrer MQTT après connexion DB
+    setIO(io);
+    startMQTT();
+  })
   .catch((err) => {
-    console.error('❌ Erreur de connexion MongoDB :', err.message);
+    console.error('❌ MongoDB :', err.message);
     process.exit(1);
   });
 
-// ── Import des routes ────────────────────────────────────────────────────────
-const authRoutes    = require('./routes/authRoutes');
-const sensorRoutes  = require('./routes/sensorRoutes');
-const roomRoutes    = require('./routes/roomRoutes');
-const parkingRoutes = require('./routes/parkingRoutes');
-const alertRoutes   = require('./routes/alertRoutes');
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use('/api/auth',    require('./routes/authRoutes'));
+app.use('/api/sensors', require('./routes/sensorRoutes'));
+app.use('/api/rooms',   require('./routes/roomRoutes'));
+app.use('/api/parking', require('./routes/parkingRoutes'));
+app.use('/api/alerts',  require('./routes/alertRoutes'));
 
-// ── Déclaration des routes ───────────────────────────────────────────────────
-app.use('/api/auth',    authRoutes);
-app.use('/api/sensors', sensorRoutes);
-app.use('/api/rooms',   roomRoutes);
-app.use('/api/parking', parkingRoutes);
-app.use('/api/alerts',  alertRoutes);
-
-// ── Route racine ─────────────────────────────────────────────────────────────
+// ─── Route racine ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
-    message: '🎓 SmartUni PFA — API IoT opérationnelle',
-    version: '1.0.0',
+    message: '🎓 SmartUni PFA — API IoT + MQTT opérationnelle',
+    version: '2.0.0',
+    mqtt:    'broker.hivemq.com:1883',
     routes: ['/api/auth', '/api/sensors', '/api/rooms', '/api/parking', '/api/alerts'],
   });
 });
 
-// ── Route 404 personnalisée ───────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route introuvable : ${req.originalUrl}` });
 });
 
-// ── Démarrage du serveur ─────────────────────────────────────────────────────
+// ─── Démarrage ────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur SmartUni démarré sur le port ${PORT}`);
-  console.log(`📡 Mode : ${process.env.NODE_ENV || 'développement'}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Serveur SmartUni sur le port ${PORT}`);
+  console.log(`🌐 Socket.IO actif`);
 });

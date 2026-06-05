@@ -60,7 +60,6 @@ const LoginScreen = () => {
               <Text style={styles.logoEmoji}>🎓</Text>
             </View>
             <Text style={styles.appTitle}>SmartUni</Text>
-            <Text style={styles.appSubtitle}>Espace Étudiant</Text>
           </View>
 
           {/* Card */}

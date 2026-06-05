@@ -3,6 +3,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
+import TeachersManager from '../screens/admin/TeachersManager';
 import AdminDashboard  from '../screens/admin/AdminDashboard';
 import StudentsManager from '../screens/admin/StudentsManager';
 import SensorsManager  from '../screens/admin/SensorsManager';
@@ -10,7 +11,6 @@ import RoomsManager    from '../screens/admin/RoomsManager';
 import ParkingManager  from '../screens/admin/ParkingManager';
 import AlertsManager   from '../screens/admin/AlertsManager';
 import AdminProfile    from '../screens/admin/AdminProfile';
-import TeachersManager from '../screens/admin/TeachersManager';
 
 const Tab = createBottomTabNavigator();
 const TabIcon = ({ emoji, focused }) => (
@@ -38,7 +38,7 @@ const AdminTabs = () => (
     <Tab.Screen name="Students" component={StudentsManager}
       options={{ tabBarLabel: 'Étudiants', tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} /> }} />
     <Tab.Screen name="Teachers" component={TeachersManager}
-      options={{ tabBarLabel: 'Profs', tabBarIcon: ({ focused }) => <TabIcon emoji="👨‍🏫" focused={focused} /> }} />  
+      options={{ tabBarLabel: 'Profs', tabBarIcon: ({ focused }) => <TabIcon emoji="👨‍🏫" focused={focused} /> }} />
     <Tab.Screen name="Sensors" component={SensorsManager}
       options={{ tabBarLabel: 'Capteurs', tabBarIcon: ({ focused }) => <TabIcon emoji="📡" focused={focused} /> }} />
     <Tab.Screen name="Rooms" component={RoomsManager}
@@ -49,7 +49,6 @@ const AdminTabs = () => (
       options={{ tabBarLabel: 'Alertes', tabBarIcon: ({ focused }) => <TabIcon emoji="🚨" focused={focused} /> }} />
     <Tab.Screen name="AdminProfile" component={AdminProfile}
       options={{ tabBarLabel: 'Profil', tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} /> }} />
-    
   </Tab.Navigator>
 );
 

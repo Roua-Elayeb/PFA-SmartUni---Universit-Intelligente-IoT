@@ -1,4 +1,4 @@
-// src/screens/DashboardScreen.js
+// src/screens/student/DashboardScreen.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, RefreshControl,
@@ -33,40 +33,57 @@ const SCHEDULE = {
     { time: '08:00', end: '10:00', subject: 'Réseaux', room: 'Salle B201', prof: 'Dr. Chabbi', type: 'td' },
     { time: '10:15', end: '12:00', subject: 'Base de données', room: 'Salle A102', prof: 'Dr. Triki', type: 'cours' },
   ],
-  
   6: [
-    {
-      time: '08:00',
-      end: '10:00',
-      subject: 'Nom du cours',
-      room: 'Salle A101',
-      prof: 'Dr. Nom',
-      type: 'cours',  // cours / tp / td / projet
-    },
-    {
-      time: '10:15',
-      end: '12:00',
-      subject: 'Deuxième cours',
-      room: 'Labo Info C301',
-      prof: 'Dr. Nom',
-      type: 'tp',
-    },
+    { time: '08:00', end: '10:00', subject: 'Nom du cours', room: 'Salle A101', prof: 'Dr. Nom', type: 'cours' },
+    { time: '10:15', end: '12:00', subject: 'Deuxième cours', room: 'Labo Info C301', prof: 'Dr. Nom', type: 'tp' },
   ],
-
 };
 
-const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAYS_FR   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
 const TYPE_CONFIG = {
   cours:  { color: '#B89EE8', bg: '#F0E8FF', label: 'Cours' },
   tp:     { color: '#6DC9A0', bg: '#E4FFF4', label: 'TP' },
   td:     { color: '#F5C27A', bg: '#FFF8E4', label: 'TD' },
   projet: { color: '#E8709A', bg: '#FFE4EE', label: 'Projet' },
 };
-const SENSOR_EMOJI = {
-  temperature: '🌡️', humidity: '💧', co2: '🌿',
-  airQuality: '💨', pressure: '📊', noise: '🔊',
+
+// ─── Config capteurs avec qualité d'air ──────────────────────
+const SENSOR_CONFIG = {
+  temperature: {
+    emoji: '🌡️', label: 'Température', unit: '°C', max: 40,
+    getColor:  (v) => v >= 30 ? '#F07070' : v >= 26 ? '#F5C27A' : '#6DC9A0',
+    getStatus: (v) => v >= 30 ? 'Chaud'   : v >= 26 ? 'Tiède'   : 'Confortable',
+  },
+  humidity: {
+    emoji: '💧', label: 'Humidité', unit: '%', max: 100,
+    getColor:  (v) => v >= 85 ? '#F07070' : v >= 70 ? '#F5C27A' : '#6DC9A0',
+    getStatus: (v) => v >= 85 ? 'Très humide' : v >= 70 ? 'Humide' : 'Normale',
+  },
+  airQuality: {
+    emoji: '💨', label: "Qualité d'air", unit: 'AQI', max: 200,
+    getColor:  (v) => v >= 150 ? '#F07070' : v >= 100 ? '#F5C27A' : v >= 50 ? '#FFD700' : '#6DC9A0',
+    getStatus: (v) => v >= 150 ? 'Mauvaise' : v >= 100 ? 'Médiocre' : v >= 50 ? 'Modérée' : 'Bonne',
+    getDetail: (v) => v >= 150 ? 'Évitez la salle' : v >= 100 ? 'Aérer conseillé' : v >= 50 ? 'Acceptable' : 'Air pur',
+  },
+  co2: {
+    emoji: '🌿', label: 'CO₂', unit: 'ppm', max: 2000,
+    getColor:  (v) => v >= 1500 ? '#F07070' : v >= 1000 ? '#F5C27A' : '#6DC9A0',
+    getStatus: (v) => v >= 1500 ? 'Dangereux' : v >= 1000 ? 'Élevé' : 'Normal',
+  },
+  noise: {
+    emoji: '🔊', label: 'Bruit', unit: 'dB', max: 100,
+    getColor:  (v) => v >= 75 ? '#F07070' : v >= 60 ? '#F5C27A' : '#6DC9A0',
+    getStatus: (v) => v >= 75 ? 'Trop fort' : v >= 60 ? 'Bruyant' : 'Calme',
+  },
+  pressure: {
+    emoji: '📊', label: 'Pression', unit: 'hPa', max: 1050,
+    getColor:  () => '#6DC9A0',
+    getStatus: () => 'Normale',
+  },
 };
+
 const STATUS_COLOR = { normal: '#6DC9A0', warning: '#F5C27A', critical: '#F07070' };
 
 const getTimeStr = () => {
@@ -74,6 +91,7 @@ const getTimeStr = () => {
   return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 };
 
+// ─── Composant cours ──────────────────────────────────────────
 const CourseCard = ({ course, isCurrent }) => {
   const cfg = TYPE_CONFIG[course.type] || TYPE_CONFIG.cours;
   return (
@@ -105,34 +123,77 @@ const CourseCard = ({ course, isCurrent }) => {
   );
 };
 
-const SensorCard = ({ sensor }) => (
-  <View style={styles.sensorCard}>
-    <View style={[styles.sensorDot, { backgroundColor: STATUS_COLOR[sensor.status] || STATUS_COLOR.normal }]} />
-    <Text style={styles.sensorEmoji}>{SENSOR_EMOJI[sensor.type] || '📡'}</Text>
-    <Text style={styles.sensorValue}>
-      {typeof sensor.value === 'number' ? sensor.value.toFixed(1) : sensor.value}
-      <Text style={styles.sensorUnit}> {sensor.unit}</Text>
-    </Text>
-    <Text style={styles.sensorName} numberOfLines={1}>{sensor.name}</Text>
-  </View>
-);
+// ─── Composant capteur avec qualité d'air ────────────────────
+const SensorCard = ({ sensor }) => {
+  const cfg      = SENSOR_CONFIG[sensor.type] || SENSOR_CONFIG.temperature;
+  const color    = cfg.getColor(sensor.value);
+  const status   = cfg.getStatus(sensor.value);
+  const detail   = cfg.getDetail ? cfg.getDetail(sensor.value) : null;
+  const barWidth = Math.min((sensor.value / cfg.max) * 100, 100);
 
+  return (
+    <View style={[styles.sensorCard, { borderTopColor: color, borderTopWidth: 3 }]}>
+      <View style={[styles.sensorDot, { backgroundColor: color }]} />
+      <Text style={styles.sensorEmoji}>{cfg.emoji}</Text>
+      <Text style={[styles.sensorValue, { color }]}>
+        {typeof sensor.value === 'number' ? sensor.value.toFixed(1) : sensor.value}
+        <Text style={styles.sensorUnit}> {sensor.unit || cfg.unit}</Text>
+      </Text>
+      <Text style={styles.sensorName} numberOfLines={1}>{cfg.label}</Text>
+      <View style={[styles.sensorStatusBadge, { backgroundColor: color + '22' }]}>
+        <Text style={[styles.sensorStatusText, { color }]}>{status}</Text>
+      </View>
+
+      {/* Barre de progression */}
+      <View style={styles.barBg}>
+        <View style={[styles.barFill, { width: `${barWidth}%`, backgroundColor: color }]} />
+      </View>
+
+      {/* Détail AQI */}
+      {detail && (
+        <Text style={[styles.sensorDetail, { color }]}>{detail}</Text>
+      )}
+
+      {/* Échelle AQI */}
+      {sensor.type === 'airQuality' && (
+        <View style={styles.aqiScale}>
+          {[
+            { label: 'Bon',      color: '#6DC9A0', range: '0–50'    },
+            { label: 'Modéré',   color: '#FFD700', range: '50–100'  },
+            { label: 'Médiocre', color: '#F5C27A', range: '100–150' },
+            { label: 'Mauvais',  color: '#F07070', range: '150+'    },
+          ].map(s => (
+            <View key={s.label} style={styles.aqiItem}>
+              <View style={[styles.aqiDot, { backgroundColor: s.color }]} />
+              <View>
+                <Text style={styles.aqiLabel}>{s.label}</Text>
+                <Text style={styles.aqiRange}>{s.range}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ─── Écran principal ──────────────────────────────────────────
 const DashboardScreen = () => {
   const { user } = useAuth();
-  const [sensors, setSensors] = useState([]);
-  const [myRoom, setMyRoom] = useState(null);
-  const [myParking, setMyParking] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [sensors,    setSensors]    = useState([]);
+  const [myRoom,     setMyRoom]     = useState(null);
+  const [myParking,  setMyParking]  = useState(null);
+  const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const now = new Date();
-  const dayIndex = now.getDay();
+  const now          = new Date();
+  const dayIndex     = now.getDay();
   const todaySchedule = SCHEDULE[dayIndex] || [];
-  const timeNow = getTimeStr();
+  const timeNow      = getTimeStr();
   const currentCourse = todaySchedule.find(c => c.time <= timeNow && c.end >= timeNow) || null;
-  const nextCourse = todaySchedule.find(c => c.time > timeNow) || null;
-  const dateStr = `${DAYS_FR[dayIndex]} ${now.getDate()} ${MONTHS_FR[now.getMonth()]}`;
+  const nextCourse    = todaySchedule.find(c => c.time > timeNow) || null;
+  const dateStr       = `${DAYS_FR[dayIndex]} ${now.getDate()} ${MONTHS_FR[now.getMonth()]}`;
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -171,7 +232,13 @@ const DashboardScreen = () => {
     <SafeAreaView style={styles.safe}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchData(); }}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -187,7 +254,7 @@ const DashboardScreen = () => {
 
         <Animated.View style={{ opacity: fadeAnim }}>
 
-          {/* ── 1. Résumé Personnel ── */}
+          {/* ── 1. Mes réservations ── */}
           {(myRoom || myParking) && (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>📋 Mes réservations actives</Text>
@@ -242,7 +309,7 @@ const DashboardScreen = () => {
             )}
           </View>
 
-          {/* ── 3. Capteurs par salle ── */}
+          {/* ── 3. Capteurs environnement ── */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🌡️ Environnement</Text>
             <Text style={styles.sectionSub}>{currentCourse ? currentCourse.room : 'Campus'}</Text>
@@ -260,12 +327,16 @@ const DashboardScreen = () => {
             <View style={styles.sensorsBox}>
               {criticalCount > 0 && (
                 <View style={styles.alertBanner}>
-                  <Text style={styles.alertText}>🚨 {criticalCount} capteur{criticalCount > 1 ? 's' : ''} critique{criticalCount > 1 ? 's' : ''} !</Text>
+                  <Text style={styles.alertText}>
+                    🚨 {criticalCount} capteur{criticalCount > 1 ? 's' : ''} critique{criticalCount > 1 ? 's' : ''} !
+                  </Text>
                 </View>
               )}
               {warningCount > 0 && criticalCount === 0 && (
                 <View style={[styles.alertBanner, { backgroundColor: '#FFF8E4', borderLeftColor: '#F5C27A' }]}>
-                  <Text style={[styles.alertText, { color: '#F5C27A' }]}>⚠️ {warningCount} avertissement{warningCount > 1 ? 's' : ''}</Text>
+                  <Text style={[styles.alertText, { color: '#F5C27A' }]}>
+                    ⚠️ {warningCount} avertissement{warningCount > 1 ? 's' : ''}
+                  </Text>
                 </View>
               )}
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -273,7 +344,7 @@ const DashboardScreen = () => {
               </ScrollView>
               <View style={styles.legendRow}>
                 {[
-                  { c: STATUS_COLOR.normal,   l: `${sensors.filter(s=>s.status==='normal').length} normaux` },
+                  { c: STATUS_COLOR.normal,   l: `${sensors.filter(s => s.status === 'normal').length} normaux` },
                   { c: STATUS_COLOR.warning,  l: `${warningCount} attention` },
                   { c: STATUS_COLOR.critical, l: `${criticalCount} critiques` },
                 ].map(({ c, l }) => (
@@ -294,86 +365,75 @@ const DashboardScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#EDE6FF' },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.lg, marginBottom: spacing.md,
-  },
-  greeting: { fontSize: fonts.sizes.sm, color: '#8A7A9B' },
-  userName: { fontSize: fonts.sizes.xxl, fontWeight: '800', color: '#2D2040' },
-  dateText: { fontSize: fonts.sizes.xs, color: '#B8ACCC', marginTop: 2 },
-  avatar: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
-  },
+  safe:       { flex: 1, backgroundColor: '#EDE6FF' },
+  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, marginBottom: spacing.md },
+  greeting:   { fontSize: fonts.sizes.sm, color: '#8A7A9B' },
+  userName:   { fontSize: fonts.sizes.xxl, fontWeight: '800', color: '#2D2040' },
+  dateText:   { fontSize: fonts.sizes.xs, color: '#B8ACCC', marginTop: 2 },
+  avatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   avatarText: { color: '#fff', fontWeight: '800', fontSize: fonts.sizes.md },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.xl,
-    marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.lg,
-    shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 3,
-  },
-  cardTitle: { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#2D2040', marginBottom: spacing.md },
-  resumeRow: { flexDirection: 'row' },
-  resumeItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+
+  card:         { backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.xl, marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.lg, shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 3 },
+  cardTitle:    { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#2D2040', marginBottom: spacing.md },
+  resumeRow:    { flexDirection: 'row' },
+  resumeItem:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   resumeBorder: { borderLeftWidth: 1, borderLeftColor: 'rgba(184,172,204,0.3)', paddingLeft: spacing.md },
-  resumeEmoji: { fontSize: 28 },
-  resumeLabel: { fontSize: fonts.sizes.xs, color: '#8A7A9B' },
-  resumeValue: { fontSize: fonts.sizes.sm, fontWeight: '800', color: '#2D2040' },
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.lg, marginBottom: spacing.sm, marginTop: spacing.sm,
-  },
-  sectionTitle: { fontSize: fonts.sizes.lg, fontWeight: '700', color: '#2D2040' },
-  sectionSub: { fontSize: fonts.sizes.xs, color: '#B8ACCC' },
-  scheduleBox: { paddingHorizontal: spacing.lg },
-  subLabel: { fontSize: fonts.sizes.xs, fontWeight: '700', color: '#B8ACCC', marginBottom: 4, marginTop: 4 },
-  empty: { alignItems: 'center', paddingVertical: spacing.xl,
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.xl, marginBottom: spacing.md,
-  },
+  resumeEmoji:  { fontSize: 28 },
+  resumeLabel:  { fontSize: fonts.sizes.xs, color: '#8A7A9B' },
+  resumeValue:  { fontSize: fonts.sizes.sm, fontWeight: '800', color: '#2D2040' },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.sm, marginTop: spacing.sm },
+  sectionTitle:  { fontSize: fonts.sizes.lg, fontWeight: '700', color: '#2D2040' },
+  sectionSub:    { fontSize: fonts.sizes.xs, color: '#B8ACCC' },
+  scheduleBox:   { paddingHorizontal: spacing.lg },
+  subLabel:      { fontSize: fonts.sizes.xs, fontWeight: '700', color: '#B8ACCC', marginBottom: 4, marginTop: 4 },
+
+  empty:      { alignItems: 'center', paddingVertical: spacing.xl, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.xl, marginBottom: spacing.md },
   emptyTitle: { fontSize: fonts.sizes.lg, fontWeight: '700', color: '#2D2040', marginTop: spacing.sm },
-  emptySub: { fontSize: fonts.sizes.sm, color: '#8A7A9B', marginTop: 4 },
-  courseCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.lg,
-    padding: spacing.md, marginBottom: spacing.sm,
-    shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
-  },
+  emptySub:   { fontSize: fonts.sizes.sm, color: '#8A7A9B', marginTop: 4 },
+
+  courseCard:       { backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
   courseCardActive: { borderWidth: 1.5, borderColor: '#E8709A' },
-  liveChip: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.sm },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8709A' },
-  liveText: { fontSize: 10, fontWeight: '800', color: '#E8709A', letterSpacing: 1 },
-  courseRow: { flexDirection: 'row', gap: spacing.md },
-  courseTime: { alignItems: 'center', width: 40 },
-  courseTimeText: { fontSize: 10, fontWeight: '700', color: '#8A7A9B' },
-  courseTimeLine: { width: 1, flex: 1, backgroundColor: 'rgba(184,172,204,0.4)', marginVertical: 3 },
-  courseInfo: { flex: 1, borderLeftWidth: 3, borderLeftColor: 'rgba(184,172,204,0.3)', paddingLeft: spacing.sm },
-  courseTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  courseSubject: { fontSize: fonts.sizes.md, fontWeight: '700', color: '#2D2040', flex: 1 },
-  typeBadge: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 4 },
-  typeBadgeText: { fontSize: 10, fontWeight: '700' },
-  courseRoom: { fontSize: fonts.sizes.xs, color: '#8A7A9B', marginBottom: 2 },
-  courseProf: { fontSize: fonts.sizes.xs, color: '#B8ACCC' },
-  sensorsBox: { paddingHorizontal: spacing.lg },
-  alertBanner: {
-    backgroundColor: '#FFE8E8', borderRadius: radius.md,
-    marginBottom: spacing.sm, padding: spacing.md,
-    borderLeftWidth: 4, borderLeftColor: '#F07070',
-  },
-  alertText: { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#F07070' },
-  sensorCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.lg,
-    padding: spacing.md, marginRight: spacing.sm, minWidth: 100,
-    alignItems: 'center', marginBottom: spacing.sm, position: 'relative',
-    shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
-  },
-  sensorDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 },
-  sensorEmoji: { fontSize: 26, marginBottom: 4 },
-  sensorValue: { fontSize: fonts.sizes.lg, fontWeight: '800', color: '#2D2040' },
-  sensorUnit: { fontSize: fonts.sizes.xs, color: '#8A7A9B', fontWeight: '400' },
-  sensorName: { fontSize: 10, color: '#8A7A9B', marginTop: 2, textAlign: 'center' },
-  legendRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.md },
+  liveChip:         { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.sm },
+  liveDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8709A' },
+  liveText:         { fontSize: 10, fontWeight: '800', color: '#E8709A', letterSpacing: 1 },
+  courseRow:        { flexDirection: 'row', gap: spacing.md },
+  courseTime:       { alignItems: 'center', width: 40 },
+  courseTimeText:   { fontSize: 10, fontWeight: '700', color: '#8A7A9B' },
+  courseTimeLine:   { width: 1, flex: 1, backgroundColor: 'rgba(184,172,204,0.4)', marginVertical: 3 },
+  courseInfo:       { flex: 1, borderLeftWidth: 3, borderLeftColor: 'rgba(184,172,204,0.3)', paddingLeft: spacing.sm },
+  courseTop:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  courseSubject:    { fontSize: fonts.sizes.md, fontWeight: '700', color: '#2D2040', flex: 1 },
+  typeBadge:        { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 4 },
+  typeBadgeText:    { fontSize: 10, fontWeight: '700' },
+  courseRoom:       { fontSize: fonts.sizes.xs, color: '#8A7A9B', marginBottom: 2 },
+  courseProf:       { fontSize: fonts.sizes.xs, color: '#B8ACCC' },
+
+  sensorsBox:  { paddingHorizontal: spacing.lg },
+  alertBanner: { backgroundColor: '#FFE8E8', borderRadius: radius.md, marginBottom: spacing.sm, padding: spacing.md, borderLeftWidth: 4, borderLeftColor: '#F07070' },
+  alertText:   { fontSize: fonts.sizes.sm, fontWeight: '700', color: '#F07070' },
+
+  sensorCard:        { backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: radius.lg, padding: spacing.md, marginRight: spacing.sm, minWidth: 130, alignItems: 'center', marginBottom: spacing.sm, position: 'relative', shadowColor: '#B89EE8', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  sensorDot:         { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 },
+  sensorEmoji:       { fontSize: 26, marginBottom: 4 },
+  sensorValue:       { fontSize: fonts.sizes.lg, fontWeight: '800', color: '#2D2040' },
+  sensorUnit:        { fontSize: fonts.sizes.xs, color: '#8A7A9B', fontWeight: '400' },
+  sensorName:        { fontSize: 10, color: '#8A7A9B', marginTop: 2, textAlign: 'center' },
+  sensorStatusBadge: { borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
+  sensorStatusText:  { fontSize: 9, fontWeight: '700' },
+  barBg:             { height: 3, width: '100%', backgroundColor: 'rgba(0,0,0,0.07)', borderRadius: 2, overflow: 'hidden', marginTop: 6 },
+  barFill:           { height: '100%', borderRadius: 2 },
+  sensorDetail:      { fontSize: 9, fontWeight: '600', marginTop: 4, textAlign: 'center' },
+
+  aqiScale: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)', width: '100%' },
+  aqiItem:  { flexDirection: 'row', alignItems: 'center', gap: 3, width: '48%' },
+  aqiDot:   { width: 7, height: 7, borderRadius: 4 },
+  aqiLabel: { fontSize: 9, fontWeight: '700', color: '#2D2040' },
+  aqiRange: { fontSize: 8, color: '#8A7A9B' },
+
+  legendRow:  { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.md, marginTop: spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendDot:  { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: fonts.sizes.xs, color: '#8A7A9B' },
 });
 

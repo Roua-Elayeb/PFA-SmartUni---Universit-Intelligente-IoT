@@ -30,12 +30,9 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    specialty: {
-      type: String,
-      trim: true,
-      default: '',
+    speciality: { type: String, trim: true, default: '' },
+    courses: { type: Array, default: [] },
     },
-  },
   { timestamps: true }
 );
 

@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
 
 import LoginScreen      from '../screens/student/LoginScreen';
-import studentTabs      from './studentTabs';
+import StudentTabs      from './StudentTabs';
 import AdminTabs        from './AdminTabs';
 import TeacherTabs      from './TeacherTabs';
 import RoomDetailScreen from '../screens/student/RoomDetailScreen';
